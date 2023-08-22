@@ -1,44 +1,48 @@
+import type { ActualArrayBuffer, SerializationOptions } from "./index.js";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 export function serializeObject(
   object: Record<string, any>,
-  serializeFn: (value: any) => Uint8Array,
-): Uint8Array {
-  const serializedEntries: Array<[Uint8Array, Uint8Array]> = [];
-  let byteLength = 1;
+  serializeFn: (value: any) => Array<ActualArrayBuffer> | ActualArrayBuffer,
+  options: SerializationOptions,
+): Array<ActualArrayBuffer> {
   const objectEntries = Object.entries(object);
+  const objectLengthView = new DataView(new ArrayBuffer(4));
+  objectLengthView.setUint32(0, objectEntries.length, options.littleEndian);
+  const serializedEntries: Array<ActualArrayBuffer> = [objectLengthView.buffer];
   for (const [name, value] of objectEntries) {
     const serializedValue = serializeFn(value);
     const serializedName = textEncoder.encode(name);
-    byteLength += 1 + serializedName.length + serializedValue.length;
-    serializedEntries.push([serializedName, serializedValue]);
+    const serializedNameLengthView = new DataView(new ArrayBuffer(4));
+    serializedNameLengthView.setUint32(0, serializedName.byteLength, options.littleEndian);
+    serializedEntries.push(serializedNameLengthView.buffer, serializedName.buffer);
+    if (Array.isArray(serializedValue)) {
+      serializedEntries.push(...serializedValue);
+    } else {
+      serializedEntries.push(serializedValue);
+    }
   }
-  const result = new Uint8Array(byteLength);
-  result[0] = objectEntries.length;
-  let offset = 1;
-  for (const [name, value] of serializedEntries) {
-    result[offset++] = name.byteLength;
-    result.set(name, offset);
-    offset += name.byteLength;
-    result.set(value, offset);
-    offset += value.byteLength;
-  }
-  return result;
+  return serializedEntries;
 }
 
 export function unserializeObject(
   target: Record<string, any>,
-  data: Uint8Array,
+  view: DataView,
   offset: { current: number },
   unserializeEntry: () => any,
+  { littleEndian }: SerializationOptions,
 ): void {
-  const entriesLength = data[offset.current++];
+  const entriesLength = view.getUint32(offset.current, littleEndian);
+  offset.current += 4;
   for (let i = 0; i < entriesLength; i++) {
-    const nameByteLength = data[offset.current++];
+    const nameByteLength = view.getUint32(offset.current, littleEndian);
+    offset.current += 4;
     const start = offset.current;
     offset.current += nameByteLength;
-    const name = textDecoder.decode(data.slice(start, offset.current));
+    const name = textDecoder.decode(view.buffer.slice(start, offset.current));
     target[name] = unserializeEntry();
   }
 }

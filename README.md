@@ -27,15 +27,18 @@ non primitive values:
     dataType="Object":
         Length="1"
         0:
-            entryLength="3"
+            entryLength="3""
+            nameByteLength="..."
             name="x"
             entry:
                 dataType="Number"
                 value="1"
+            nameByteLength="..."
             name="y"
             entry:
                 dataType="Array"
                 index="0"
+            nameByteLength="..."
             name="z"
             entry:
                 dataType="Array"
@@ -46,9 +49,10 @@ non primitive values:
             entryLength="2"
             0:
                 dataType="String"
+                ByteLength="..."
                 value="123"
             1:
-                dataaType="Number"
+                dataType="Number"
                 value=3
 ```
 
@@ -60,19 +64,23 @@ non primitive values:
 dataType="Object":
 Length="1"
 entryLength="3"
+nameByteLength="..."
 name="x"
 dataType="Number"
 value="1"
+nameByteLength="..."
 name="y"
 dataType="Array"
 index="0"
+nameByteLength="..."
 name="z"
 dataType="Array"
 index="0"
 dataType="Array":
 Length="1"
 entryLength="2"
-dataType="String"
+dataType="String""
+ByteLength="..."
 value="123"
 dataType="Number"
 value=3

@@ -1,31 +1,34 @@
+import type { ActualArrayBuffer, SerializationOptions } from "./index.js";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function serializeArray(
   array: Array<any>,
-  serializeFn: (value: any) => Uint8Array,
-): Uint8Array {
-  const serializedEntries: Array<Uint8Array> = [];
-  let byteLength = 1;
+  serializeFn: (value: any) => Array<ActualArrayBuffer> | ActualArrayBuffer,
+  options: SerializationOptions,
+): Array<ActualArrayBuffer> {
+  const arrayLengthView = new DataView(new ArrayBuffer(4));
+  arrayLengthView.setUint32(0, array.length, options.littleEndian);
+  const serializedEntries: Array<ActualArrayBuffer> = [arrayLengthView.buffer];
   for (const entry of array) {
     const serializedEntry = serializeFn(entry);
-    byteLength += serializedEntry.length;
-    serializedEntries.push(serializedEntry);
+    if (Array.isArray(serializedEntry)) {
+      serializedEntries.push(...serializedEntry);
+    } else {
+      serializedEntries.push(serializedEntry);
+    }
   }
-  const result = new Uint8Array(byteLength);
-  result[0] = array.length;
-  let offset = 1;
-  for (const array of serializedEntries) {
-    result.set(array, offset);
-    offset += array.byteLength;
-  }
-  return result;
+  return serializedEntries;
 }
 
 export function unserializeArray(
   target: Array<any>,
-  data: Uint8Array,
+  view: DataView,
   offset: { current: number },
   unserializeEntry: () => any,
+  { littleEndian }: SerializationOptions,
 ): void {
-  const arrayLength = data[offset.current++];
+  const arrayLength = view.getUint32(offset.current, littleEndian);
+  offset.current += 4;
   for (let i = 0; i < arrayLength; i++) {
     target.push(unserializeEntry());
   }

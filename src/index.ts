@@ -1,169 +1,135 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { serializeArray, unserializeArray } from "./array.js";
-import { serializeObject, unserializeObject } from "./object.js";
+import { unserializeArray } from "./array.js";
+import { DataType } from "./data-type.js";
+import { serializeEntry, unserializeEntry } from "./entry.js";
+import { unserializeObject } from "./object.js";
+
+export type ActualArrayBuffer = ArrayBuffer & {
+  BYTES_PER_ELEMENT?: undefined;
+};
 
 export type SerializationOptions = {
   custom?: {
     getDataType(data: any): number | undefined;
-    serialize(data: any, serializeFn: (data: any) => Uint8Array): Uint8Array;
-    createInstance(type: number): any;
+    serialize(
+      data: any,
+      serializeFn: (data: any) => Array<ActualArrayBuffer> | ActualArrayBuffer,
+      options: SerializationOptions,
+    ): Array<ActualArrayBuffer> | ActualArrayBuffer;
+    createInstance(dataType: number): any;
     unserialize(
-      type: number,
+      dataType: number,
       instance: any,
-      data: Uint8Array,
+      view: DataView,
       offset: { current: number },
-      unserialize: (data: any, offset: { current: number }) => Uint8Array,
+      unserialize: (
+        data: any,
+        offset: { current: number },
+      ) => Array<ActualArrayBuffer> | ActualArrayBuffer,
+      options: SerializationOptions,
     ): void;
   };
+  littleEndian: boolean;
 };
 
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-const defaultOptions: SerializationOptions = {};
-
-/**
- * default data types starting with 10000
- */
-enum DataType {
-  Number = 10000,
-  NaN = 10001,
-  NegInfinity = 10002,
-  PosInfinity = 10003,
-  Boolean = 10004,
-  String = 10005,
-  Object = 10006,
-  Array = 10007,
-  Null = 10008,
-  Undefined = 1009,
-}
+const defaultOptions: SerializationOptions = {
+  littleEndian: true,
+};
 
 export function serialize(
   rootData: any,
   options: SerializationOptions = defaultOptions,
 ): Uint8Array {
-  const nonPrimitiveMap = new Map<number, Array<{ value: any; serialized: Uint8Array }>>();
-  let byteLength = 0;
+  const nonPrimitiveMap = new Map<
+    number,
+    {
+      values: Array<any>;
+      serializedValues: Array<{ ref: ActualArrayBuffer | Array<ActualArrayBuffer> }>;
+    }
+  >();
+  let nonPrimitivesByteLength = 0;
 
   function addNonPrimitive(
-    type: number,
+    dataType: number,
     value: any,
-    serialize: (value: any, serializeFn: (value: any) => Uint8Array) => Uint8Array,
+    serialize: (
+      value: any,
+      serializeFn: (value: any) => Array<ActualArrayBuffer> | ActualArrayBuffer,
+      options: SerializationOptions,
+    ) => Array<ActualArrayBuffer> | ActualArrayBuffer,
   ): number {
-    let entry = nonPrimitiveMap.get(type);
+    let entry = nonPrimitiveMap.get(dataType);
     if (entry == null) {
-      nonPrimitiveMap.set(type, (entry = []));
-      byteLength += 2; //non primtive type, entries length
+      nonPrimitiveMap.set(dataType, (entry = { serializedValues: [], values: [] }));
+      nonPrimitivesByteLength += 8; //non primtive type, entries length both 32 bit
     }
-    let index = entry.findIndex((entry) => entry.value === value);
+    const { serializedValues, values } = entry;
+    let index = values.indexOf(value);
     if (index === -1) {
-      index = entry.length;
-      const serialized = serialize(value, serializeFn);
-      byteLength += serialized.byteLength;
-      entry.push({
-        value,
-        serialized,
-      });
+      const serializedRef = { ref: null as any };
+      serializedValues.push(serializedRef);
+
+      //IMPORTANT: retrieving the index and pushing must be one the same side (before/after) the serialize function, because this function recursively pushes to values
+      index = values.length;
+      values.push(value);
+
+      serializedRef.ref = serialize(value, serializeFn, options);
+      nonPrimitivesByteLength += getByteLength(serializedRef.ref);
     }
     return index;
   }
 
-  const serializeFn = (data: any): Uint8Array => {
+  const serializeFn = (data: any): Array<ActualArrayBuffer> | ActualArrayBuffer => {
     return serializeEntry(data, options, addNonPrimitive);
   };
 
   const rootEntry = serializeFn(rootData);
-
-  byteLength += rootEntry.byteLength;
+  const result = new Uint8Array(nonPrimitivesByteLength + getByteLength(rootEntry));
+  const view = new DataView(result.buffer);
 
   //construct result array
-  const result = new Uint8Array(byteLength);
   let offset = 0;
-  result.set(rootEntry, 0);
-  offset += rootEntry.byteLength;
 
-  for (const [dataType, entries] of nonPrimitiveMap) {
-    result[offset++] = dataType;
-    result[offset++] = entries.length;
-    for (const { serialized } of entries) {
-      result.set(serialized, offset);
-      offset += serialized.byteLength;
+  if (Array.isArray(rootEntry)) {
+    for (const s of rootEntry) {
+      result.set(new Uint8Array(s), offset);
+      offset += s.byteLength;
+    }
+  } else {
+    result.set(new Uint8Array(rootEntry), offset);
+    offset += rootEntry.byteLength;
+  }
+
+  for (const [dataType, { serializedValues }] of nonPrimitiveMap) {
+    view.setUint32(offset, dataType, options.littleEndian);
+    offset += 4;
+    view.setUint32(offset, serializedValues.length, options.littleEndian);
+    offset += 4;
+    for (const { ref } of serializedValues) {
+      if (Array.isArray(ref)) {
+        for (const v of ref) {
+          result.set(new Uint8Array(v), offset);
+          offset += v.byteLength;
+        }
+      } else {
+        result.set(new Uint8Array(ref), offset);
+        offset += ref.byteLength;
+      }
     }
   }
 
   return result;
 }
 
-function serializeEntry(
-  data: any,
-  options: SerializationOptions,
-  addNonPrimitive: (
-    type: number,
-    value: any,
-    serialize: (data: any, serializeFn: (data: any) => Uint8Array) => Uint8Array,
-  ) => number,
-): Uint8Array {
-  if (options.custom != null) {
-    const { serialize: customSerialize, getDataType } = options.custom;
-    const dataType = getDataType(data);
-    if (dataType != null) {
-      if (!Number.isInteger(dataType) || dataType < 0 || dataType >= 10000) {
-        throw new Error(`data type must be a integer between (including) 0 and 9999`);
-      }
-      const index = addNonPrimitive(dataType, data, customSerialize);
-      return new Uint8Array([dataType, index]);
-    }
-  }
-
-  switch (typeof data) {
-    case "number": {
-      if (isFinite(data)) {
-        const result = new Uint8Array();
-        result[0] = DataType.Number;
-        const view = new DataView(result.buffer);
-        view.setFloat64(1, data);
-        return result;
-      }
-      return new Uint8Array([
-        isNaN(data)
-          ? DataType.NaN
-          : data === Infinity
-          ? DataType.PosInfinity
-          : DataType.NegInfinity,
-      ]);
-    }
-    case "boolean":
-      return new Uint8Array([DataType.Boolean, data ? 1 : 0]);
-    case "string": {
-      const stringBuffer = textEncoder.encode(data);
-      const result = new Uint8Array(stringBuffer.byteLength + 2);
-      result[0] = DataType.String;
-      result[1] = stringBuffer.byteLength;
-      result.set(stringBuffer, 2);
-      return result;
-    }
-    case "object": {
-      if (data === null) {
-        return new Uint8Array([DataType.Null]);
-      }
-      const isArray = Array.isArray(data);
-      const type = isArray ? DataType.Array : DataType.Object;
-      return new Uint8Array([
-        type,
-        addNonPrimitive(type, data, isArray ? serializeArray : serializeObject),
-      ]);
-    }
-    case "undefined":
-      return new Uint8Array([DataType.Undefined]);
-
-    case "bigint":
-    case "symbol":
-    case "function":
-      throw new Error(`data type "${typeof data}" is not serializeable by xserialization`);
-  }
+function getByteLength(data: ActualArrayBuffer | Array<ActualArrayBuffer>): number {
+  return Array.isArray(data) ? data.reduce((prev, s) => prev + s.byteLength, 0) : data.byteLength;
 }
 
-export function unserialize(data: Uint8Array, options: SerializationOptions = defaultOptions): any {
+export function unserialize(
+  _data: Uint8Array,
+  options: SerializationOptions = defaultOptions,
+): any {
+  const view = new DataView(_data.buffer);
   const nonPrimitiveMap = new Map<number, Array<any>>();
 
   function getNonPrimitiveValues(dataType: number): Array<any> {
@@ -191,22 +157,22 @@ export function unserialize(data: Uint8Array, options: SerializationOptions = de
   const offset = { current: 0 };
 
   function unserializeEntryFn() {
-    unserializeEntry(data, offset, getNonPrimitive);
+    return unserializeEntry(view, offset, getNonPrimitive, options);
   }
 
-  const rootEntry = unserializeEntry(data, offset, getNonPrimitive);
+  const rootEntry = unserializeEntry(view, offset, getNonPrimitive, options);
 
-  while (offset.current < data.byteLength) {
-    const dataType = data[offset.current++];
+  while (offset.current < view.byteLength) {
+    const dataType = view.getUint32(offset.current, options.littleEndian);
+    offset.current += 4;
     const values = getNonPrimitiveValues(dataType);
     const unserializeFn = getUnserializeFunction(dataType, options);
-    const entriesLength = data[offset.current++];
+    const entriesLength = view.getUint32(offset.current, options.littleEndian);
+    offset.current += 4;
 
     for (let i = 0; i < entriesLength; i++) {
-      for (let i = 0; i < entriesLength; i++) {
-        const value = getNonPrimitiveValue(dataType, values, i);
-        unserializeFn(value, data, offset, unserializeEntryFn);
-      }
+      const value = getNonPrimitiveValue(dataType, values, i);
+      unserializeFn(value, view, offset, unserializeEntryFn, options);
     }
   }
 
@@ -239,11 +205,12 @@ function getUnserializeFunction(
   options: SerializationOptions,
 ): (
   value: any,
-  data: Uint8Array,
+  view: DataView,
   offset: {
     current: number;
   },
   unserializeFn: () => any,
+  options: SerializationOptions,
 ) => void {
   switch (dataType) {
     case DataType.Array:
@@ -261,48 +228,8 @@ function getUnserializeFunction(
           `Data type "${dataType}" is a custom data type but no custom serialization handler is provided.`,
         );
       }
-      const { createInstance } = options.custom;
-      return createInstance.bind(options.custom, dataType);
-    }
-  }
-}
-
-function unserializeEntry(
-  data: Uint8Array,
-  offset: { current: number },
-  getNonPrimitive: (dataType: number, index: number) => any,
-): any {
-  const dataType = data[offset.current++];
-  switch (dataType) {
-    case DataType.NaN:
-      return NaN;
-    case DataType.NegInfinity:
-      return -Infinity;
-    case DataType.PosInfinity:
-      return Infinity;
-    case DataType.Boolean:
-      return data[offset.current++] === 1;
-    case DataType.Null:
-      return null;
-    case DataType.Undefined:
-      return undefined;
-    case DataType.Number: {
-      const start = offset.current;
-      offset.current += 8;
-      const view = new DataView(data.buffer, start, offset.current);
-      return view.getFloat64(0);
-    }
-    case DataType.String: {
-      const byteLength = data[offset.current++];
-      const start = offset.current;
-      offset.current += byteLength;
-      return textDecoder.decode(data.slice(start, offset.current));
-    }
-    case DataType.Array:
-    case DataType.Object:
-    default: {
-      const index = data[offset.current++];
-      return getNonPrimitive(dataType, index);
+      const { unserialize } = options.custom;
+      return unserialize.bind(options.custom, dataType);
     }
   }
 }
