@@ -1,0 +1,29 @@
+{
+  "name": "@coconut-xr/xserialization",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [],
+  "homepage": "https://coconut-xr.github.io/xserialization",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:coconut-xr/xserialization.git"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "run-s check:prettier check:eslint",
+    "check:prettier": "prettier --check 'src/**/*.ts'",
+    "check:eslint": "eslint src",
+    "fix": "run-s fix:prettier fix:eslint",
+    "fix:prettier": "prettier --write 'src/**/*.ts'",
+    "fix:eslint": "eslint src --fix"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
+  "type": "module",
+  "author": "Bela Bohlender",
+  "license": "SEE LICENSE IN LICENSE",
+  "devDependencies": {
+  }
+}
