@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { serializeArray, unserializeArray } from "./array.js";
 import { serializeObject, unserializeObject } from "./object.js";
 
 export type SerializationOptions = {
   custom?: {
-    getDataType(dataType: number): number | undefined;
+    getDataType(data: any): number | undefined;
     serialize(data: any, serializeFn: (data: any) => Uint8Array): Uint8Array;
     createInstance(type: number): any;
     unserialize(
@@ -12,12 +13,14 @@ export type SerializationOptions = {
       data: Uint8Array,
       offset: { current: number },
       unserialize: (data: any, offset: { current: number }) => Uint8Array,
-    ): number;
+    ): void;
   };
 };
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
+
+const defaultOptions: SerializationOptions = {};
 
 /**
  * default data types starting with 10000
@@ -35,7 +38,10 @@ enum DataType {
   Undefined = 1009,
 }
 
-export function serialize(rootData: any, options: SerializationOptions): Uint8Array {
+export function serialize(
+  rootData: any,
+  options: SerializationOptions = defaultOptions,
+): Uint8Array {
   const nonPrimitiveMap = new Map<number, Array<{ value: any; serialized: Uint8Array }>>();
   let byteLength = 0;
 
@@ -102,7 +108,7 @@ function serializeEntry(
     const dataType = getDataType(data);
     if (dataType != null) {
       if (!Number.isInteger(dataType) || dataType < 0 || dataType >= 10000) {
-        throw new Error(`type must be a integer between (including) 0 and 9999`);
+        throw new Error(`data type must be a integer between (including) 0 and 9999`);
       }
       const index = addNonPrimitive(dataType, data, customSerialize);
       return new Uint8Array([dataType, index]);
@@ -114,7 +120,7 @@ function serializeEntry(
       if (isFinite(data)) {
         const result = new Uint8Array();
         result[0] = DataType.Number;
-        const view = new DataView(result);
+        const view = new DataView(result.buffer);
         view.setFloat64(1, data);
         return result;
       }
@@ -157,7 +163,7 @@ function serializeEntry(
   }
 }
 
-export function unserialize(data: Uint8Array, options: SerializationOptions): any {
+export function unserialize(data: Uint8Array, options: SerializationOptions = defaultOptions): any {
   const nonPrimitiveMap = new Map<number, Array<any>>();
 
   function getNonPrimitiveValues(dataType: number): Array<any> {
@@ -244,7 +250,7 @@ function getUnserializeFunction(
       return unserializeArray;
     case DataType.Object:
       return unserializeObject;
-    default:
+    default: {
       if (dataType > 1000) {
         throw new Error(
           `unknown data type "${dataType}. Custom data types must be between (including) 0 and 9999."`,
@@ -257,6 +263,7 @@ function getUnserializeFunction(
       }
       const { createInstance } = options.custom;
       return createInstance.bind(options.custom, dataType);
+    }
   }
 }
 
@@ -282,7 +289,7 @@ function unserializeEntry(
     case DataType.Number: {
       const start = offset.current;
       offset.current += 8;
-      const view = new DataView(data, start, offset.current);
+      const view = new DataView(data.buffer, start, offset.current);
       return view.getFloat64(0);
     }
     case DataType.String: {
@@ -293,8 +300,9 @@ function unserializeEntry(
     }
     case DataType.Array:
     case DataType.Object:
-    default:
+    default: {
       const index = data[offset.current++];
       return getNonPrimitive(dataType, index);
+    }
   }
 }
