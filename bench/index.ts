@@ -2,7 +2,7 @@
 import { add, complete, cycle, suite } from "benny";
 import { SerializationOptions, serialize, unserialize } from "../src/index.js";
 import { encode, decode } from "@msgpack/msgpack";
-import { getLargeObj } from "./object.js";
+import { getLargeObj } from "../object.js";
 
 const object = getLargeObj();
 

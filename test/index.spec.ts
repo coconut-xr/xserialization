@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect } from "chai";
 import { SerializationOptions, serialize, unserialize } from "../src/index.js";
+import { getLargeObj } from "../object.js";
 
 let globalLittleEndian = true;
 
@@ -206,5 +207,12 @@ const textDecoder = new TextDecoder();
         'data type "function" is not serializeable by xserialization',
       );
     });
+
+    it("should reserialize large object", () => {
+      const object = getLargeObj();
+      expect(reserialize(object)).to.deep.equal(object);
+    });
   });
 });
+
+//TODO: test long strings, long objects, long object keys, long array, high integers, negative integers

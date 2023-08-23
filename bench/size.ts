@@ -1,6 +1,6 @@
 import { encode } from "@msgpack/msgpack";
 import { serialize } from "../src/index.js";
-import { getLargeObj } from "./object.js";
+import { getLargeObj } from "../object.js";
 
 const object = getLargeObj();
 
