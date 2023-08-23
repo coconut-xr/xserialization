@@ -1,17 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect } from "chai";
-import { SerializationOptions, serialize, unserialize } from "../src/index.js";
+import { SerializationOptions, serialize, deserialize, Reader, Writer } from "../src/index.js";
 import { getLargeObj } from "../object.js";
 
 let globalLittleEndian = true;
 
-function reserialize(value: any, options: SerializationOptions = { littleEndian: true }): any {
-  options.littleEndian = globalLittleEndian;
-  return unserialize(serialize(value, options), options);
+function reserialize(value: any, options: SerializationOptions = {}): any {
+  return deserialize(
+    new Reader(
+      serialize(value, new Writer(globalLittleEndian), options).buffer,
+      globalLittleEndian,
+    ),
+    options,
+  );
 }
 
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
+describe(`writer`, () => {
+  it("should handle move forward", () => {
+    const writer = new Writer();
+    const length = writer.writeString("123");
+    writer.move(2, 0, length);
+    writer.writeU16At(0, 1000);
+    const reader = new Reader(writer.finish().buffer);
+    expect([reader.readU16(), reader.readString(length)]).to.deep.equal([1000, "123"]);
+  });
+});
 
 [true, false].forEach((littleEndian) => {
   globalLittleEndian = littleEndian;
@@ -67,31 +80,22 @@ const textDecoder = new TextDecoder();
       }
       expect(
         reserialize(new X(100), {
-          littleEndian: true,
           custom: {
             getDataType(value) {
               if (value instanceof X) {
                 return 0;
               }
             },
-            createInstance() {
-              return new X(0);
-            },
-            serialize(value, serialize, options) {
+            serialize(writer, value, serialize) {
               if (!(value instanceof X)) {
                 throw new Error("can only serialize instances of class X");
               }
-              const view = new DataView(new ArrayBuffer(8));
-              view.setFloat64(0, value.y, options.littleEndian);
-              return view.buffer;
+              serialize(value.y);
+              return;
             },
-            unserialize(dataType, instance, data, offset, _unserialize, options) {
-              if (!(instance instanceof X)) {
-                throw new Error("can only unserialize instances of class X");
-              }
-              const view = new DataView(data.buffer, offset.current);
-              offset.current += 8;
-              instance.y = view.getFloat64(0, options.littleEndian);
+
+            deserialize(reader, dataType, deserialize) {
+              return new X(deserialize());
             },
           },
         }),
@@ -109,7 +113,6 @@ const textDecoder = new TextDecoder();
         reserialize(
           { x: new X(100), y: new Y("hallo welt!") },
           {
-            littleEndian: true,
             custom: {
               getDataType(value) {
                 if (value instanceof X) {
@@ -119,38 +122,25 @@ const textDecoder = new TextDecoder();
                   return 1;
                 }
               },
-              createInstance(dataType) {
-                return dataType === 0 ? new X(0) : new Y("");
-              },
-              serialize(value, _serialize, options) {
-                if (value instanceof X) {
-                  const view = new DataView(new ArrayBuffer(8));
-                  view.setFloat64(0, value.y);
-                  return view.buffer;
+              serialize(writer, data, serialize) {
+                if (data instanceof X) {
+                  serialize(data.y);
+                  return;
                 }
-                if (value instanceof Y) {
-                  const serializedText = textEncoder.encode(value.x);
-                  const view = new DataView(new ArrayBuffer(4));
-                  view.setUint32(0, serializedText.byteLength, options.littleEndian);
-                  return [view.buffer, serializedText];
+                if (data instanceof Y) {
+                  serialize(data.x);
+                  return;
                 }
                 throw new Error("can only serialize instances of class X or class Y");
               },
-              unserialize(dataType, instance, data, offset, _unserialize, options) {
-                if (instance instanceof X) {
-                  instance.y = data.getFloat64(offset.current);
-                  offset.current += 8;
-                  return;
+              deserialize(reader, dataType, deserialize) {
+                if (dataType === 0) {
+                  return new X(deserialize());
                 }
-                if (instance instanceof Y) {
-                  const serializedTextLength = data.getUint32(offset.current, options.littleEndian);
-                  offset.current += 4;
-                  const start = offset.current;
-                  offset.current += serializedTextLength;
-                  instance.x = textDecoder.decode(data.buffer.slice(start, offset.current));
-                  return;
+                if (dataType === 1) {
+                  return new Y(deserialize());
                 }
-                throw new Error("can only unserialize instances of class X or class Y");
+                throw new Error("can only deserialize instances of class X or class Y");
               },
             },
           },
@@ -162,41 +152,33 @@ const textDecoder = new TextDecoder();
       expect(
         () =>
           reserialize(1, {
-            littleEndian: true,
             custom: {
               getDataType() {
                 return 10000;
               },
-              createInstance() {
-                return null;
-              },
               serialize() {
                 return new Uint8Array(0).buffer;
               },
-              unserialize() {},
+              deserialize() {},
             },
           }),
-        "data type greater 9999",
-      ).to.throw("data type must be a integer between (including) 0 and 9999");
+        "data type greater 31",
+      ).to.throw("data type must be a integer between (including) 0 and 31");
       expect(
         () =>
           reserialize(1, {
-            littleEndian: true,
             custom: {
               getDataType() {
                 return -1;
               },
-              createInstance() {
-                return null;
-              },
               serialize() {
                 return new Uint8Array(0).buffer;
               },
-              unserialize() {},
+              deserialize() {},
             },
           }),
         "negative data type",
-      ).to.throw("data type must be a integer between (including) 0 and 9999");
+      ).to.throw("data type must be a integer between (including) 0 and 31");
     });
 
     it("should throw error for incorrect data structures", () => {
@@ -212,7 +194,46 @@ const textDecoder = new TextDecoder();
       const object = getLargeObj();
       expect(reserialize(object)).to.deep.equal(object);
     });
+
+    it("should reserialize very long string", () => {
+      const str = new Array(10000)
+        .fill(null)
+        .map(() => "abc")
+        .join(",");
+      expect(reserialize(str)).to.equal(str);
+    });
+    it("should reserialize very long objects", () => {
+      const record: Record<string, any> = {};
+      for (let i = 0; i < 10000; i++) {
+        record[i] = i;
+      }
+      expect(reserialize(record)).to.deep.equal(record);
+    });
+    it("should reserialize objects with very long keys", () => {
+      const record: Record<string, any> = {};
+      for (let i = 0; i < 100; i++) {
+        record[
+          new Array(100)
+            .fill(null)
+            .map(() => Math.random())
+            .join("")
+        ] = i;
+      }
+      expect(reserialize(record)).to.deep.equal(record);
+    });
+    it("should reserialize very long arrays", () => {
+      const array = new Array(10000).fill(null);
+      array[1] = 2;
+      expect(reserialize(array)).to.deep.equal(array);
+    });
+    it("should serialize very high integers", () => {
+      const value = 0xffffffff; //2^32 - 1
+      expect(value).to.equal(value);
+    });
+    it("should serialize negative integers", () => {
+      expect(reserialize(-1)).to.equal(-1);
+      expect(reserialize(-100000)).to.equal(-100000);
+      expect(reserialize(Number.MIN_SAFE_INTEGER)).to.equal(Number.MIN_SAFE_INTEGER);
+    });
   });
 });
-
-//TODO: test long strings, long objects, long object keys, long array, high integers, negative integers

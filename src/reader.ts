@@ -5,7 +5,9 @@ export class Reader {
   private view: DataView;
 
   constructor(
-    data: ArrayBuffer,
+    data: ArrayBufferLike & {
+      BYTES_PER_ELEMENT?: undefined;
+    },
     private readonly littleEndian = true,
   ) {
     this.view = new DataView(data);
@@ -39,9 +41,9 @@ export class Reader {
     return textDecoder.decode(this.readBuffer(byteLength));
   }
 
-  readBuffer(byteLength: number): ArrayBuffer {
+  readBuffer(byteLength: number): Uint8Array {
     const start = this.position;
     this.position += byteLength;
-    return this.view.buffer.slice(start, this.position);
+    return new Uint8Array(this.view.buffer).subarray(start, this.position);
   }
 }

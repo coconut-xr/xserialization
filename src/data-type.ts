@@ -1,12 +1,17 @@
 /**
  * default primtive data types
  */
-export enum PrimitiveDataType {
-  // FixUint 0-55 values 0 to 55
-  // FixNUint 56-111 values -1 to -56
-  // FixString 112-167 string length 0 to 55
-  // FixPointer 168-223 pointer 0 to 55
+export enum DataType {
+  // Custom data type 0 - 31
 
+  // FixUint 32-63 values 0 to 31
+  // FixNUint 64-95 values -1 to -32
+  // FixStr 96-127 string length 0 to 31
+  // FixPtr 128-159 pointer 0 to 31
+  // FixArr 160-191 array length 0 to 31
+  // FixObj8 192-223 object length 0 to 31 with key length of 0 to 256
+
+  //last 32 entries for non fix entries
   NaN = 224,
   PosInf = 225,
   NegInf = 226,
@@ -18,40 +23,40 @@ export enum PrimitiveDataType {
   Uint8 = 232,
   Uint16 = 233,
   Uint32 = 234,
-  NUInt8 = 235,
-  NUInt16 = 236,
-  NUInt32 = 237,
+  NUint8 = 235,
+  NUint16 = 236,
+  NUint32 = 237,
   Str8 = 238,
   Str16 = 239,
   Str32 = 240,
   Pointer8 = 241,
   Pointer16 = 242,
   Pointer32 = 243,
-  //243 - 255 reserved for future use
+  Arr8 = 244,
+  Arr16 = 245,
+  Arr32 = 246,
+  Obj8 = 247,
+  Obj16 = 248,
+  Obj32 = 249,
+  //250-255 reserved for future use
 }
 
-/**
- * default non primitive data tytpes starting with 112 up to max of 255 (0-63 is for custom data types)
- */
-export enum NonPrimitiveDataType {
-  // Custom data type 0 - 111
+export const CustomDataTypeEndExcl = 32;
+export const FixUintStartIncl = 32;
+export const FixUintEndExcl = 64;
+export const FixNUintStartIncl = 64;
+export const FixNUintEndExcl = 96;
+export const FixStrStartIncl = 96;
+export const FixStrEndExcl = 128;
+export const FixPtrStartIncl = 128;
+export const FixPtrEndExcl = 160;
+export const FixArrStartIncl = 160;
+export const FixArrEndExcl = 192;
+export const FixObj8StartIncl = 192;
+export const FixObj8EndExcl = 224;
 
-  // FixArr 112-167 array length 0 to 55
-  // FixObj8 168-223 object length 0 to 55 with key length of 0 to 256
-
-  Arr8 = 224,
-  Arr16 = 225,
-  Arr32 = 226,
-  Obj8x8 = 227,
-  Obj8x16 = 228,
-  Obj8x32 = 229,
-  Obj16x8 = 230,
-  Obj16x16 = 231,
-  Obj16x32 = 232,
-  Obj32x8 = 233,
-  Obj32x16 = 234,
-  Obj32x32 = 235,
-  //236 - 255 reserverd for future use
+export function is5bit(value: number) {
+  return value < 32;
 }
 
 export function is8bit(value: number) {
