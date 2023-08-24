@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { add, complete, cycle, suite } from "benny";
-import { serialize, deserialize } from "../src/index.js";
+import {
+  Reader,
+  SerializationOptions,
+  Writer,
+  deserializeFrom,
+  serializeInto,
+} from "../src/index.js";
 import { encode, decode } from "@msgpack/msgpack";
 import { getLargeObj } from "../object.js";
 
@@ -8,6 +14,22 @@ const array = new Array(100).fill(null).map(() => Math.random());
 const record: Record<string, any> = {};
 for (let i = 0; i < 10000; i++) {
   record[i] = 0;
+}
+
+const defaultWriter = new Writer();
+
+function serialize(data: any, options: SerializationOptions = {}): Uint8Array {
+  serializeInto(defaultWriter, data, options);
+  return defaultWriter.finishReference();
+}
+
+const defaultReader = new Reader();
+
+function deserialize(data: Uint8Array, options: SerializationOptions = {}): any {
+  defaultReader.start(data);
+  const result = deserializeFrom(defaultReader, options);
+  defaultReader.finish();
+  return result;
 }
 
 suite(

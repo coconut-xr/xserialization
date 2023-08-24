@@ -1,10 +1,12 @@
 import { encode } from "@msgpack/msgpack";
-import { serialize } from "../src/index.js";
+import { Writer, serializeInto } from "../src/index.js";
 import { getLargeObj } from "../object.js";
 
 const object = getLargeObj();
 
-const xserializationSize = serialize(object).byteLength;
+const writer = new Writer();
+serializeInto(writer, object);
+const xserializationSize = writer.finishReference().byteLength;
 const msgPackSize = encode(object).byteLength;
 const jsonSize = new TextEncoder().encode(JSON.stringify(object)).byteLength;
 

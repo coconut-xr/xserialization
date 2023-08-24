@@ -11,20 +11,4 @@ export type SerializationOptions = {
   };
 };
 
-const defaultWriter = new Writer();
-
-export function serialize(data: any, options: SerializationOptions = {}): Uint8Array {
-  serializeInto(defaultWriter, data, options);
-  return defaultWriter.finishReference();
-}
-
-const defaultReader = new Reader();
-
-export function deserialize(data: Uint8Array, options: SerializationOptions = {}): any {
-  defaultReader.start(data);
-  const result = deserializeFrom(defaultReader, options);
-  defaultReader.finish();
-  return result;
-}
-
 export { Writer, Reader, serializeInto, deserializeFrom };

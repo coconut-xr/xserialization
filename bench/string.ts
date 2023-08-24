@@ -1,6 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { add, complete, cycle, suite } from "benny";
 import { Writer } from "../src/writer.js";
-import { Reader, serialize } from "../src/index.js";
+import { Reader, SerializationOptions, serializeInto } from "../src/index.js";
+
+const defaultWriter = new Writer();
+
+function serialize(data: any, options: SerializationOptions = {}): Uint8Array {
+  serializeInto(defaultWriter, data, options);
+  return defaultWriter.finishReference();
+}
 
 const smallString = "a";
 const middleString = "123456789";
@@ -57,50 +65,47 @@ const reader = new Reader();
 suite(
   "read small string",
   add("manual", () => {
-    reader.start(serializedSmallString)
+    reader.start(serializedSmallString);
     reader["readStringManual"](serializedSmallString.byteLength);
-    reader.finish()
+    reader.finish();
   }),
   add("native", () => {
-    reader.start(serializedSmallString)
+    reader.start(serializedSmallString);
     reader["readStringNative"](serializedSmallString.byteLength);
-    reader.finish()
+    reader.finish();
   }),
   cycle(),
   complete(),
 );
 
-
 suite(
   "read small string",
   add("manual", () => {
-    reader.start(serializedMiddleString)
+    reader.start(serializedMiddleString);
     reader["readStringManual"](serializedMiddleString.byteLength);
-    reader.finish()
+    reader.finish();
   }),
   add("native", () => {
-    reader.start(serializedMiddleString)
+    reader.start(serializedMiddleString);
     reader["readStringNative"](serializedMiddleString.byteLength);
-    reader.finish()
+    reader.finish();
   }),
   cycle(),
   complete(),
 );
-
 
 suite(
   "read small string",
   add("manual", () => {
-    reader.start(serializedLongString)
+    reader.start(serializedLongString);
     reader["readStringManual"](serializedLongString.byteLength);
-    reader.finish()
+    reader.finish();
   }),
   add("native", () => {
-    reader.start(serializedLongString)
+    reader.start(serializedLongString);
     reader["readStringNative"](serializedLongString.byteLength);
-    reader.finish()
+    reader.finish();
   }),
   cycle(),
   complete(),
 );
-

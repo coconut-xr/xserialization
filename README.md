@@ -1,129 +1,86 @@
 # @coconut-xr/xserialization
 
-_fast and efficient data serialization for js primtivies and datastuctures_
+_fast and efficient js data serialization_
 
 ## Features
 
 - preserves referential integrity
-- can serialize recursive data-structures
+- can serialize recursive data structures
 - 0 dependencies
 - true to js (supports null, undefined, NaN, ...)
+- custom data types
+
+## API
+
+```typescript
+type SerializationOptions = {
+  custom?: {
+    getDataType(data: any): number | undefined;
+    serialize(writer: Writer, data: any, serialize: (data: any) => void): void;
+    deserialize(reader: Reader, dataType: number, deserialize: () => any): any;
+  };
+};
+function serializeInto(writer: Writer, data: any, options: SerializationOptions = {}): void;
+function deserializeFrom(reader: Reader, options: SerializationOptions = {}): any;
+```
+
+## Usage
+
+```typescript
+const value = "test";
+const writer = new Writer();
+serializeInto(writer, value);
+const buffer = writer.finishReference();
+const reader = new Reader();
+reader.start(buffer);
+const result = deserializeInto(reader);
+reader.finish();
+console.log(result);
+```
+
+*Why so complex, you might ask?*
+
+Using this design reader and writer can be reused and serializeInto can be called multiple times to write into the same buffer.
 
 ## Data Types
 
-| Name             | first byte (in binary) | first byte (in hex) |
-| ---------------- | ---------------------- | ------------------- |
-| custom data type | 0xxxxxxx               | 0x00 - 0x7f         |
-| NaN              | 10000000               |                     |
-| +Infinity        | 10000001               |                     |
-| -Infinity        | 10000010               |                     |
-| null             | 10000011               |                     |
-| undefined        | 10000100               |                     |
-| false            | 10000101               |                     |
-| true             | 10000110               |                     |
-| float 32         | 10000111               |                     |
-| float 64         | 10001000               |                     |
-| uint 8           | 10001001               |                     |
-| uint 16          | 10001010               |                     |
-| uint 32          | 10001011               |                     |
-| int 8            | 10001100               |                     |
-| int 16           | 10001101               |                     |
-| int 32           | 10001110               |                     |
-| str 8            | 10001111               |                     |
-| str 16           | 10010000               |                     |
-| str 32           | 10010001               |                     |
-| array 8          | 10010010               |                     |
-| array 16         | 10010011               |                     |
-| array 32         | 10010100               |                     |
-| map 8x16         | 10010101               |                     |
-| map 8x8          | 10010110               |                     |
-| map 8x32         | 10010111               |                     |
-| map 16x8         | 10011000               |                     |
-| map 16x16        | 10011001               |                     |
-| map 16x32        | 10011010               |                     |
-| map 32x8         | 10011011               |                     |
-| map 32x16        | 10011100               |                     |
-| map 32x32        | 10011101               |                     |
+| Name                                                        | range   |
+| ----------------------------------------------------------- | ------- |
+| Custom data type                                            | 0 - 31  |
+| FixUint (values 0 to 31)                                    | 32-63   |
+| FixNUint (values -1 to -32)                                 | 64-95   |
+| FixStr (string length 0 to 31)                              | 96-127  |
+| FixPtr (pointer 0 to 31)                                    | 128-159 |
+| FixArr (array length 0 to 31)                               | 160-191 |
+| FixObj8 (object length 0 to 31 with a key length of 0 to 256) | 192-223 |
+| NaN                                                         | 224     |
+| PosInf                                                      | 225     |
+| NegInf                                                      | 226     |
+| Null                                                        | 227     |
+| Undefined                                                   | 228     |
+| False                                                       | 229     |
+| True                                                        | 230     |
+| Float64                                                     | 231     |
+| Uint8                                                       | 232     |
+| Uint16                                                      | 233     |
+| Uint32                                                      | 234     |
+| NUint8                                                      | 235     |
+| NUint16                                                     | 236     |
+| NUint32                                                     | 237     |
+| Str8                                                        | 238     |
+| Str16                                                       | 239     |
+| Str32                                                       | 240     |
+| Pointer8                                                    | 241     |
+| Pointer16                                                   | 242     |
+| Pointer32                                                   | 243     |
+| Arr8                                                        | 244     |
+| Arr16                                                       | 245     |
+| Arr32                                                       | 246     |
+| Obj8                                                        | 247     |
+| Obj16                                                       | 248     |
+| Obj32                                                       | 249     |
+| Reserved for future use                                     | 250-255 |
 
-## Structure
+## Achknowledgement
 
-_Example_
-
-```json
-{
-    "x": 1,
-    "y": ["123", 3],
-    "z": <reference to y>
-}
-```
-
-```
-rootEntry:
-    dataType="Object"
-    index="0"
-non primitive values:
-    dataType="Object":
-        Length="1"
-        0:
-            entryLength="3""
-            nameByteLength="..."
-            name="x"
-            entry:
-                dataType="Number"
-                value="1"
-            nameByteLength="..."
-            name="y"
-            entry:
-                dataType="Array"
-                index="0"
-            nameByteLength="..."
-            name="z"
-            entry:
-                dataType="Array"
-                index="0"
-    dataType="Array":
-        Length="1"
-        0:
-            entryLength="2"
-            0:
-                dataType="String"
-                ByteLength="..."
-                value="123"
-            1:
-                dataType="Number"
-                value=3
-```
-
-_without labels_
-
-```
-"Object"
-"0"
-dataType="Object":
-Length="1"
-entryLength="3"
-nameByteLength="..."
-name="x"
-dataType="Number"
-value="1"
-nameByteLength="..."
-name="y"
-dataType="Array"
-index="0"
-nameByteLength="..."
-name="z"
-dataType="Array"
-index="0"
-dataType="Array":
-Length="1"
-entryLength="2"
-dataType="String""
-ByteLength="..."
-value="123"
-dataType="Number"
-value=3
-```
-
-## Process
-
-### Serialize
+**xserialization** builds on the structure and idea of [msgpack](https://github.com/msgpack) but focusses solely on js data.

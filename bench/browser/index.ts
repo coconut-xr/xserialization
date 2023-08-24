@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { decode, encode } from "@msgpack/msgpack";
-import { serialize } from "../../src/index.js";
 import { getLargeObj } from "../../object.js";
+import { SerializationOptions, Writer, serializeInto } from "../../src/index.js";
+
+const defaultWriter = new Writer();
+
+function serialize(data: any, options: SerializationOptions = {}): Uint8Array {
+  serializeInto(defaultWriter, data, options);
+  return defaultWriter.finishReference();
+}
 
 setTimeout(async () => {
   let ours = 0;

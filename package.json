@@ -1,8 +1,8 @@
 {
   "name": "@coconut-xr/xserialization",
   "version": "0.0.0",
-  "description": "",
-  "keywords": [],
+  "description": "fast and efficient js data serialization",
+  "keywords": ["binary", "serialization", "data"],
   "homepage": "https://coconut-xr.github.io/xserialization",
   "repository": {
     "type": "git",
