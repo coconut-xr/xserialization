@@ -24,13 +24,8 @@ import { SerializationOptions } from "./index.js";
 import { Reader } from "./reader.js";
 import { Writer } from "./writer.js";
 
-export type SerializeProps = {
-  writer: Writer;
-  getNonPrimitiveIndex: (value: any) => number | undefined;
-} & SerializationOptions;
-
-export function serializeValue(props: SerializeProps, data: any): void {
-  const { writer, custom } = props;
+export function serializeInto(writer: Writer, data: any, options: SerializationOptions = {}): void {
+  const { custom } = options;
   const customDataType = custom?.getDataType(data);
 
   if (customDataType != null) {
@@ -43,10 +38,10 @@ export function serializeValue(props: SerializeProps, data: any): void {
         `data type must be a integer between (including) 0 and ${CustomDataTypeEndExcl - 1}`,
       );
     }
-    const index = props.getNonPrimitiveIndex(data);
+    const index = writer.getNonPrimitiveIndex(data);
     if (index == null) {
       writer.writeU8(customDataType);
-      custom!.serialize(writer, data, serializeValue.bind(null, props));
+      custom!.serialize(writer, data, (data) => serializeInto(writer, data, options));
     } else {
       writePointer(writer, index);
     }
@@ -74,7 +69,7 @@ export function serializeValue(props: SerializeProps, data: any): void {
 
       //array or object (non primitive)
 
-      const index = props.getNonPrimitiveIndex(data);
+      const index = writer.getNonPrimitiveIndex(data);
 
       if (index != null) {
         writePointer(writer, index);
@@ -83,12 +78,12 @@ export function serializeValue(props: SerializeProps, data: any): void {
 
       if (Array.isArray(data)) {
         //array
-        writeArray(props, data);
+        writeArray(writer, data, options);
         return;
       }
 
       //object
-      writeObject(props, data);
+      writeObject(writer, data, options);
       return;
     }
 
@@ -108,22 +103,25 @@ function writePointer(writer: Writer, index: number): void {
 
   if (is8bit(index)) {
     //pointer8
-    writer.writeU8(DataType.Pointer8);
-    writer.writeU8(index);
+    writer.assureGrowthFits(2);
+    writer.writeU8Unsafe(DataType.Pointer8);
+    writer.writeU8Unsafe(index);
     return;
   }
 
   if (is16bit(index)) {
     //pointer16
-    writer.writeU8(DataType.Pointer16);
-    writer.writeU16(index);
+    writer.assureGrowthFits(3);
+    writer.writeU8Unsafe(DataType.Pointer16);
+    writer.writeU16Unsafe(index);
     return;
   }
 
   if (is32bit(index)) {
     //pointer32
-    writer.writeU8(DataType.Pointer32);
-    writer.writeU32(index);
+    writer.assureGrowthFits(5);
+    writer.writeU8Unsafe(DataType.Pointer32);
+    writer.writeU32Unsafe(index);
     return;
   }
 
@@ -175,50 +173,66 @@ export function writeString(writer: Writer, data: string) {
 function writeNumber(writer: Writer, data: number): void {
   if (Number.isSafeInteger(data)) {
     if (data < 0) {
+      //write negative integer
       const abs = -data;
+
       if (is5bit(abs)) {
         writer.writeU8(FixNUintStartIncl + abs - 1); //-1 for nuint so that 0 maps to -1
         return;
       }
+
       if (is8bit(abs)) {
         //8bit
-        writer.writeU8(DataType.NUint8);
-        writer.writeU8(abs);
+        writer.assureGrowthFits(2);
+        writer.writeU8Unsafe(DataType.NUint8);
+        writer.writeU8Unsafe(abs);
         return;
       }
+
       if (is16bit(abs)) {
         //16bit
-        writer.writeU8(DataType.NUint16);
-        writer.writeU16(abs);
+        writer.assureGrowthFits(3);
+        writer.writeU8Unsafe(DataType.NUint16);
+        writer.writeU16Unsafe(abs);
         return;
       }
+
       if (is32bit(abs)) {
         //32bit
-        writer.writeU8(DataType.NUint32);
-        writer.writeU32(abs);
+        writer.assureGrowthFits(5);
+        writer.writeU8Unsafe(DataType.NUint32);
+        writer.writeU32Unsafe(abs);
         return;
       }
     } else {
+      //write positive integer
+
       if (is5bit(data)) {
         writer.writeU8(FixUintStartIncl + data); //-1 for nuint so that 0 maps to -1
         return;
       }
+
       if (is8bit(data)) {
         //8bit
-        writer.writeU8(DataType.Uint8);
-        writer.writeU8(data);
+        writer.assureGrowthFits(2);
+        writer.writeU8Unsafe(DataType.Uint8);
+        writer.writeU8Unsafe(data);
         return;
       }
+
       if (is16bit(data)) {
         //16bit
-        writer.writeU8(DataType.Uint16);
-        writer.writeU16(data);
+        writer.assureGrowthFits(3);
+        writer.writeU8Unsafe(DataType.Uint16);
+        writer.writeU16Unsafe(data);
         return;
       }
+
       if (is32bit(data)) {
         //32bit
-        writer.writeU8(DataType.Uint32);
-        writer.writeU32(data);
+        writer.assureGrowthFits(5);
+        writer.writeU8Unsafe(DataType.Uint32);
+        writer.writeU32Unsafe(data);
         return;
       }
     }
@@ -235,12 +249,13 @@ function writeNumber(writer: Writer, data: number): void {
   }
 
   //integer with more than 32 bit
-  writer.writeU8(DataType.Float64);
-  writer.writeFloat64(data);
+  writer.assureGrowthFits(9);
+  writer.writeU8Unsafe(DataType.Float64);
+  writer.writeFloat64Unsafe(data);
+  return;
 }
 
-function writeObject(props: SerializeProps, object: any): void {
-  const { writer } = props;
+function writeObject(writer: Writer, object: any, options: SerializationOptions): void {
   const objectKeys = Object.keys(object);
   const objectLength = objectKeys.length;
 
@@ -249,23 +264,25 @@ function writeObject(props: SerializeProps, object: any): void {
     writer.writeU8(FixObj8StartIncl + objectLength);
   } else if (is8bit(objectLength)) {
     //Object 8
-    writer.writeU8(DataType.Obj8);
-    writer.writeU8(objectLength);
+    writer.assureGrowthFits(2);
+    writer.writeU8Unsafe(DataType.Obj8);
+    writer.writeU8Unsafe(objectLength);
   } else if (is16bit(objectLength)) {
     //Object 16
-    writer.writeU8(DataType.Obj16);
-    writer.writeU16(objectLength);
+    writer.assureGrowthFits(3);
+    writer.writeU8Unsafe(DataType.Obj16);
+    writer.writeU16Unsafe(objectLength);
   } else if (is32bit(objectLength)) {
     //Object 32
-    writer.writeU8(DataType.Obj32);
-    writer.writeU32(objectLength);
+    writer.assureGrowthFits(5);
+    writer.writeU8Unsafe(DataType.Obj32);
+    writer.writeU32Unsafe(objectLength);
   } else {
     throwMoreThan32Bit("object entry amount", objectLength);
   }
 
   //write entries
-  for (let i = 0; i < objectLength; i++) {
-    const key = objectKeys[i];
+  for (const key of objectKeys) {
     const keyLengthTypePosition = writer.grow(1);
     const keyLength = writer.writeString(key);
     if (keyLength < 254) {
@@ -286,44 +303,40 @@ function writeObject(props: SerializeProps, object: any): void {
     } else {
       throwMoreThan32Bit("key length of object", keyLength);
     }
-    serializeValue(props, object[key]);
+    serializeInto(writer, object[key], options);
   }
 }
 
-function writeArray(props: SerializeProps, array: Array<any>): void {
-  const { writer } = props;
+function writeArray(writer: Writer, array: Array<any>, options: SerializationOptions): void {
   const arrayLength = array.length;
   if (is5bit(arrayLength)) {
     //FixArray
     writer.writeU8(FixArrStartIncl + arrayLength);
   } else if (is8bit(arrayLength)) {
     //Array8
-    writer.writeU8(DataType.Arr8);
-    writer.writeU8(arrayLength);
+    writer.assureGrowthFits(2);
+    writer.writeU8Unsafe(DataType.Arr8);
+    writer.writeU8Unsafe(arrayLength);
   } else if (is16bit(arrayLength)) {
     //Array16
-    writer.writeU8(DataType.Arr16);
-    writer.writeU16(arrayLength);
+    writer.assureGrowthFits(3);
+    writer.writeU8Unsafe(DataType.Arr16);
+    writer.writeU16Unsafe(arrayLength);
   } else if (is32bit(arrayLength)) {
     //Array32
-    writer.writeU8(DataType.Arr32);
-    writer.writeU32(arrayLength);
+    writer.assureGrowthFits(5);
+    writer.writeU8Unsafe(DataType.Arr32);
+    writer.writeU32Unsafe(arrayLength);
   } else {
     throwMoreThan32Bit("array length", arrayLength);
   }
-  for (let i = 0; i < arrayLength; i++) {
-    serializeValue(props, array[i]);
+  for (const item of array) {
+    serializeInto(writer, item, options);
   }
 }
 
-export type DeserializeProps = {
-  reader: Reader;
-  getNonPrimitive: (index: number) => any;
-  addNonPrimitive: (data: any) => void;
-} & SerializationOptions;
-
-export function deserializeValue(props: DeserializeProps): any {
-  const { reader, custom } = props;
+export function deserializeFrom(reader: Reader, options: SerializationOptions = {}): any {
+  const { custom } = options;
   const dataType = reader.readU8();
   if (dataType < CustomDataTypeEndExcl) {
     //custom data type
@@ -332,7 +345,7 @@ export function deserializeValue(props: DeserializeProps): any {
         `Data type "${dataType}" is a custom data type but no custom serialization handler is provided.`,
       );
     }
-    return custom.deserialize(reader, dataType, deserializeValue.bind(custom, props));
+    return custom.deserialize(reader, dataType, deserializeFrom.bind(custom, reader, options));
   }
 
   if (dataType < FixUintEndExcl) {
@@ -352,17 +365,17 @@ export function deserializeValue(props: DeserializeProps): any {
 
   if (dataType < FixPtrEndExcl) {
     //FixPointer
-    return props.getNonPrimitive(dataType - FixPtrStartIncl);
+    return reader.getNonPrimitive(dataType - FixPtrStartIncl);
   }
 
   if (dataType < FixArrEndExcl) {
     //FixArray
-    return readArray(props, dataType - FixArrStartIncl);
+    return readArray(reader, dataType - FixArrStartIncl, options);
   }
 
   if (dataType < FixObj8EndExcl) {
     //FixObject8
-    return readObject(props, dataType - FixObj8StartIncl);
+    return readObject(reader, dataType - FixObj8StartIncl, options);
   }
 
   if (dataType)
@@ -402,41 +415,40 @@ export function deserializeValue(props: DeserializeProps): any {
       case DataType.Str32:
         return reader.readString(reader.readU32());
       case DataType.Pointer8:
-        return props.getNonPrimitive(reader.readU8());
+        return reader.getNonPrimitive(reader.readU8());
       case DataType.Pointer16:
-        return props.getNonPrimitive(reader.readU16());
+        return reader.getNonPrimitive(reader.readU16());
       case DataType.Pointer32:
-        return props.getNonPrimitive(reader.readU32());
+        return reader.getNonPrimitive(reader.readU32());
       case DataType.Arr8:
-        return readArray(props, reader.readU8());
+        return readArray(reader, reader.readU8(), options);
       case DataType.Arr16:
-        return readArray(props, reader.readU16());
+        return readArray(reader, reader.readU16(), options);
       case DataType.Arr32:
-        return readArray(props, reader.readU32());
+        return readArray(reader, reader.readU32(), options);
       case DataType.Obj8:
-        return readObject(props, reader.readU8());
+        return readObject(reader, reader.readU8(), options);
       case DataType.Obj16:
-        return readObject(props, reader.readU16());
+        return readObject(reader, reader.readU16(), options);
       case DataType.Obj32:
-        return readObject(props, reader.readU32());
+        return readObject(reader, reader.readU32(), options);
     }
 
   throw new Error(`Unknown primitive data type "${dataType}".`);
 }
 
-function readArray(props: DeserializeProps, arrayLength: number): Array<any> {
+function readArray(reader: Reader, arrayLength: number, options: SerializationOptions): Array<any> {
   const result = new Array(arrayLength);
-  props.addNonPrimitive(result);
+  reader.addNonPrimitive(result);
   for (let i = 0; i < arrayLength; i++) {
-    result[i] = deserializeValue(props);
+    result[i] = deserializeFrom(reader, options);
   }
   return result;
 }
 
-function readObject(props: DeserializeProps, objectLength: number): any {
-  const { addNonPrimitive, reader } = props;
+function readObject(reader: Reader, objectLength: number, options: SerializationOptions): any {
   const result: Record<string, any> = {};
-  addNonPrimitive(result);
+  reader.addNonPrimitive(result);
   for (let i = 0; i < objectLength; i++) {
     const objectKeyLengthType = reader.readU8();
     let keyLength: number;
@@ -448,7 +460,7 @@ function readObject(props: DeserializeProps, objectLength: number): any {
       keyLength = reader.readU32();
     }
     const objectKey = reader.readString(keyLength);
-    result[objectKey] = deserializeValue(props);
+    result[objectKey] = deserializeFrom(reader, options);
   }
   return result;
 }

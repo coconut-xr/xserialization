@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { add, complete, cycle, suite } from "benny";
-import { serialize, deserialize, Writer, Reader } from "../src/index.js";
+import { serialize, deserialize } from "../src/index.js";
 import { encode, decode } from "@msgpack/msgpack";
 import { getLargeObj } from "../object.js";
 
@@ -12,11 +12,11 @@ for (let i = 0; i < 10000; i++) {
 
 suite(
   "serialize object",
-  add("xserialize", () => {
-    serialize(record);
-  }),
   add("msgpack encode ", () => {
     encode(record);
+  }),
+  add("xserialize", () => {
+    serialize(record);
   }),
   cycle(),
   complete(),
@@ -36,11 +36,11 @@ suite(
 
 suite(
   "serialize array",
-  add("xserialize", () => {
-    serialize(array);
-  }),
   add("msgpack encode ", () => {
     encode(array);
+  }),
+  add("xserialize", () => {
+    serialize(array);
   }),
   cycle(),
   complete(),
@@ -76,40 +76,33 @@ const object = getLargeObj();
 
 suite(
   "serialize nested object",
-  add("xserialize - little endian", () => {
-    serialize(object, new Writer(true));
-  }),
-  add("xserialize - little endian", () => {
-    serialize(object, new Writer(false));
-  }),
   add("json stringify", () => {
     JSON.stringify(object);
   }),
   add("msgpack encode ", () => {
     encode(object);
   }),
+  add("xserialize - little endian", () => {
+    serialize(object);
+  }),
   cycle(),
   complete(),
 );
 
-const serializedLittle = serialize(object, new Writer(true)).buffer;
-const serializedBig = serialize(object, new Writer(false)).buffer;
+const serializedLittle = serialize(object);
 const serializedStringify = JSON.stringify(object);
 const serializedMsgpack = encode(object);
 
 suite(
   "deserialize nested object",
-  add("xdeserialize - little endian", () => {
-    deserialize(new Reader(serializedLittle, true));
-  }),
-  add("xdeserialize - little endian", () => {
-    deserialize(new Reader(serializedBig, false));
+  add("msgpack decode ", () => {
+    decode(serializedMsgpack);
   }),
   add("json parse", () => {
     JSON.parse(serializedStringify);
   }),
-  add("msgpack decode ", () => {
-    decode(serializedMsgpack);
+  add("xdeserialize - little endian", () => {
+    deserialize(serializedLittle);
   }),
   cycle(),
   complete(),

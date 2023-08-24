@@ -8,6 +8,7 @@
     "type": "git",
     "url": "git@github.com:coconut-xr/xserialization.git"
   },
+  "types": "module",
   "scripts": {
     "test": "nyc mocha ./test/*.spec.ts",
     "build": "tsc -p tsconfig.build.json",
@@ -20,6 +21,7 @@
     "bench:test:serialize": "tsc && node --inspect dist/bench/test-serialize.js",
     "bench:test:deserialize": "tsc && node --inspect dist/bench/test-deserialize.js",
     "bench:perf": "tsc && node --max-old-space-size=4096 dist/bench/index.js",
+    "bench:string": "tsc && node --max-old-space-size=4096 dist/bench/string.js",
     "bench:size": "ts-node --esm ./bench/size.ts",
     "bench:browser": "npm --prefix ./bench/browser/ run dev"
   },

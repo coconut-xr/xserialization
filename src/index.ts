@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { serializeValue, deserializeValue } from "./values.js";
+import { serializeInto, deserializeFrom } from "./serialization.js";
 import { Reader } from "./reader.js";
 import { Writer } from "./writer.js";
 
@@ -11,43 +11,20 @@ export type SerializationOptions = {
   };
 };
 
-export function serialize(
-  data: any,
-  writer: Writer = new Writer(),
-  options: SerializationOptions = {},
-): Uint8Array {
-  const nonPrimitives = new Map<any, number>();
-  let counter = 0;
+const defaultWriter = new Writer();
 
-  function getNonPrimitiveIndex(data: any): number | undefined {
-    const index = nonPrimitives.get(data);
-    if (index == null) {
-      nonPrimitives.set(data, counter++);
-      return undefined;
-    }
-    return index;
-  }
-
-  serializeValue({ writer, getNonPrimitiveIndex, ...options }, data);
-
-  return writer.finish();
+export function serialize(data: any, options: SerializationOptions = {}): Uint8Array {
+  serializeInto(defaultWriter, data, options);
+  return defaultWriter.finishReference();
 }
 
-export function deserialize(reader: Reader, options: SerializationOptions = {}): any {
-  const nonPrimitives: Array<any> = [];
+const defaultReader = new Reader();
 
-  function addNonPrimitive(data: any): void {
-    nonPrimitives.push(data);
-  }
-
-  function getNonPrimitive(index: number): any {
-    if (!(index in nonPrimitives)) {
-      throw new Error(`No non-primitive for pointer (index ${index}).`);
-    }
-    return nonPrimitives[index];
-  }
-
-  return deserializeValue({ reader, getNonPrimitive, addNonPrimitive, ...options });
+export function deserialize(data: Uint8Array, options: SerializationOptions = {}): any {
+  defaultReader.start(data);
+  const result = deserializeFrom(defaultReader, options);
+  defaultReader.finish();
+  return result;
 }
 
-export { Writer, Reader };
+export { Writer, Reader, serializeInto, deserializeFrom };

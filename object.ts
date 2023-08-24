@@ -17,7 +17,7 @@ function getObj(): OBJ {
       x: 2,
     },
     object2: null,
-    array: Array.from({ length: 100 }, (_, idx) => idx),
+    array: Array.from({ length: 100 }, () => 1),
     array2: [],
     keep: { x: 2 },
     filtered: [1, 2, 3, 4, 5, 6],

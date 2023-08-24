@@ -1,18 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect } from "chai";
-import { SerializationOptions, serialize, deserialize, Reader, Writer } from "../src/index.js";
+import {
+  SerializationOptions,
+  Reader,
+  Writer,
+  serializeInto,
+  deserializeFrom,
+} from "../src/index.js";
 import { getLargeObj } from "../object.js";
 
 let globalLittleEndian = true;
 
 function reserialize(value: any, options: SerializationOptions = {}): any {
-  return deserialize(
-    new Reader(
-      serialize(value, new Writer(globalLittleEndian), options).buffer,
-      globalLittleEndian,
-    ),
-    options,
-  );
+  const reader = new Reader(globalLittleEndian);
+  const writer = new Writer(globalLittleEndian);
+
+  //serialize
+  serializeInto(writer, value, options);
+
+  //deseralize
+  reader.start(writer.finishReference());
+  const result = deserializeFrom(reader, options);
+  reader.finish();
+
+  return result;
 }
 
 describe(`writer`, () => {
@@ -21,8 +32,10 @@ describe(`writer`, () => {
     const length = writer.writeString("123");
     writer.move(2, 0, length);
     writer.writeU16At(0, 1000);
-    const reader = new Reader(writer.finish().buffer);
+    const reader = new Reader();
+    reader.start(writer.finishReference());
     expect([reader.readU16(), reader.readString(length)]).to.deep.equal([1000, "123"]);
+    reader.finish();
   });
 });
 
