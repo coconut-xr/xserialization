@@ -68,26 +68,32 @@ export class Writer {
   writeString(toWrite: string): number {
     const startPosition = this.position;
 
-    if (toWrite.length === 0) {
+    let unwritten = toWrite.length;
+    let wasWritten = 0;
+
+    if (unwritten === 0) {
       return 0;
     }
 
-    this.assureGrowthFits(toWrite.length); //estimation to reduce overflow while writing
+    this.assureGrowthFits(unwritten); //estimation to reduce overflow while writing
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const { read = 0, written = 0 } = textEncoder.encodeInto(
         toWrite,
-        this.u8array.subarray(this.position),
+        this.u8array.subarray(startPosition + wasWritten),
       );
-      this.position += written;
+      wasWritten += written;
 
-      if (read === toWrite.length) {
-        return this.position - startPosition;
+      if (read < unwritten) {
+        unwritten -= read;
+        toWrite = toWrite.slice(read);
+        this.resizeTo(this.position * 2);
+        continue;
       }
 
-      toWrite = toWrite.slice(read);
-      this.resizeTo(this.position * 2);
+      this.position += wasWritten;
+      return wasWritten;
     }
   }
 

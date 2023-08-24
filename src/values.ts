@@ -134,7 +134,7 @@ export function writeString(writer: Writer, data: string) {
   const dataTypePosition = writer.grow(1);
   const byteLength = writer.writeString(data);
 
-  if (is5bit(byteLength)) {
+  if (byteLength < 32) {
     //fix str
     writer.writeU8At(dataTypePosition, FixStrStartIncl + byteLength);
     return;
@@ -142,7 +142,7 @@ export function writeString(writer: Writer, data: string) {
 
   const currentTextPosition = dataTypePosition + 1;
 
-  if (is8bit(byteLength)) {
+  if (byteLength < 0x100) {
     //8bit
     //move text back by 1 to insert the byteLength (8bit)
     writer.move(1, currentTextPosition, currentTextPosition + byteLength);
@@ -151,7 +151,7 @@ export function writeString(writer: Writer, data: string) {
     return;
   }
 
-  if (is16bit(byteLength)) {
+  if (byteLength < 0x10000) {
     //16bit
     //move text back by 2 to insert the byteLength (16bit)
     writer.move(2, currentTextPosition, currentTextPosition + byteLength);
@@ -160,7 +160,7 @@ export function writeString(writer: Writer, data: string) {
     return;
   }
 
-  if (is32bit(byteLength)) {
+  if (byteLength < 0x100000000) {
     //32bit
     //move text back by 4 to insert the byteLength (32bit)
     writer.move(4, currentTextPosition, currentTextPosition + byteLength);

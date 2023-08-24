@@ -20,7 +20,8 @@
     "bench:test:serialize": "tsc && node --inspect dist/bench/test-serialize.js",
     "bench:test:deserialize": "tsc && node --inspect dist/bench/test-deserialize.js",
     "bench:perf": "tsc && node --max-old-space-size=4096 dist/bench/index.js",
-    "bench:size": "ts-node --esm ./bench/size.ts"
+    "bench:size": "ts-node --esm ./bench/size.ts",
+    "bench:browser": "npm --prefix ./bench/browser/ run dev"
   },
   "files": [
     "dist"
@@ -47,6 +48,7 @@
     "nyc": "^15.1.0",
     "prettier": "^3.0.2",
     "ts-node": "^10.9.1",
-    "typescript": "^5.1.6"
+    "typescript": "^5.1.6",
+    "vite": "^4.4.9"
   }
 }
