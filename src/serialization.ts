@@ -26,9 +26,19 @@ import { Writer } from "./writer.js";
 
 export function serializeInto(writer: Writer, data: any, options: SerializationOptions = {}): void {
   const { custom } = options;
-  const customDataType = custom?.getDataType(data);
 
-  if (customDataType != null) {
+  if (custom?.isCustom(data)) {
+    const index = writer.getNonPrimitiveIndex(data);
+    if (index != null) {
+      writePointer(writer, index);
+      return;
+    }
+
+    const dataTypePosition = writer.grow(1);
+    const customDataType = custom!.serialize(writer, data, (data) =>
+      serializeInto(writer, data, options),
+    );
+
     if (
       !Number.isInteger(customDataType) ||
       customDataType < 0 ||
@@ -38,13 +48,8 @@ export function serializeInto(writer: Writer, data: any, options: SerializationO
         `data type must be a integer between (including) 0 and ${CustomDataTypeEndExcl - 1}`,
       );
     }
-    const index = writer.getNonPrimitiveIndex(data);
-    if (index == null) {
-      writer.writeU8(customDataType);
-      custom!.serialize(writer, data, (data) => serializeInto(writer, data, options));
-    } else {
-      writePointer(writer, index);
-    }
+
+    writer.writeU8At(dataTypePosition, customDataType);
     return;
   }
 

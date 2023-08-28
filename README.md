@@ -5,7 +5,6 @@
 [![Twitter](https://img.shields.io/twitter/follow/coconut_xr?style=flat-square)](https://twitter.com/coconut_xr)
 [![Discord](https://img.shields.io/discord/1087727032240185424?style=flat-square&label=discord)](https://discord.gg/RbyaXJJaJM)
 
-
 _fast and efficient js data serialization_
 
 ## Features
@@ -21,8 +20,16 @@ _fast and efficient js data serialization_
 ```typescript
 type SerializationOptions = {
   custom?: {
-    getDataType(data: any): number | undefined;
-    serialize(writer: Writer, data: any, serialize: (data: any) => void): void;
+    isCustom(data: any): boolean;
+    /**
+     * custom serilization function
+     * @param serialize allows to serialize any value inside the custom serialization function
+     * @returns the data type of the serialized value
+     */
+    serialize(writer: Writer, data: any, serialize: (data: any) => void): number;
+    /**
+     * custom deserialization function
+     */
     deserialize(reader: Reader, dataType: number, deserialize: () => any): any;
   };
 };
@@ -44,48 +51,48 @@ reader.finish();
 console.log(result);
 ```
 
-*Why so complex, you might ask?*
+_Why so complex, you might ask?_
 
 Using this design reader and writer can be reused and serializeInto can be called multiple times to write into the same buffer.
 
 ## Data Types
 
-| Name                                                        | range   |
-| ----------------------------------------------------------- | ------- |
-| Custom data type                                            | 0 - 31  |
-| FixUint (values 0 to 31)                                    | 32-63   |
-| FixNUint (values -1 to -32)                                 | 64-95   |
-| FixStr (string length 0 to 31)                              | 96-127  |
-| FixPtr (pointer 0 to 31)                                    | 128-159 |
-| FixArr (array length 0 to 31)                               | 160-191 |
+| Name                                                          | range   |
+| ------------------------------------------------------------- | ------- |
+| Custom data type                                              | 0 - 31  |
+| FixUint (values 0 to 31)                                      | 32-63   |
+| FixNUint (values -1 to -32)                                   | 64-95   |
+| FixStr (string length 0 to 31)                                | 96-127  |
+| FixPtr (pointer 0 to 31)                                      | 128-159 |
+| FixArr (array length 0 to 31)                                 | 160-191 |
 | FixObj8 (object length 0 to 31 with a key length of 0 to 256) | 192-223 |
-| NaN                                                         | 224     |
-| PosInf                                                      | 225     |
-| NegInf                                                      | 226     |
-| Null                                                        | 227     |
-| Undefined                                                   | 228     |
-| False                                                       | 229     |
-| True                                                        | 230     |
-| Float64                                                     | 231     |
-| Uint8                                                       | 232     |
-| Uint16                                                      | 233     |
-| Uint32                                                      | 234     |
-| NUint8                                                      | 235     |
-| NUint16                                                     | 236     |
-| NUint32                                                     | 237     |
-| Str8                                                        | 238     |
-| Str16                                                       | 239     |
-| Str32                                                       | 240     |
-| Pointer8                                                    | 241     |
-| Pointer16                                                   | 242     |
-| Pointer32                                                   | 243     |
-| Arr8                                                        | 244     |
-| Arr16                                                       | 245     |
-| Arr32                                                       | 246     |
-| Obj8                                                        | 247     |
-| Obj16                                                       | 248     |
-| Obj32                                                       | 249     |
-| Reserved for future use                                     | 250-255 |
+| NaN                                                           | 224     |
+| PosInf                                                        | 225     |
+| NegInf                                                        | 226     |
+| Null                                                          | 227     |
+| Undefined                                                     | 228     |
+| False                                                         | 229     |
+| True                                                          | 230     |
+| Float64                                                       | 231     |
+| Uint8                                                         | 232     |
+| Uint16                                                        | 233     |
+| Uint32                                                        | 234     |
+| NUint8                                                        | 235     |
+| NUint16                                                       | 236     |
+| NUint32                                                       | 237     |
+| Str8                                                          | 238     |
+| Str16                                                         | 239     |
+| Str32                                                         | 240     |
+| Pointer8                                                      | 241     |
+| Pointer16                                                     | 242     |
+| Pointer32                                                     | 243     |
+| Arr8                                                          | 244     |
+| Arr16                                                         | 245     |
+| Arr32                                                         | 246     |
+| Obj8                                                          | 247     |
+| Obj16                                                         | 248     |
+| Obj32                                                         | 249     |
+| Reserved for future use                                       | 250-255 |
 
 ## Achknowledgement
 

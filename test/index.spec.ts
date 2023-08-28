@@ -94,17 +94,15 @@ describe(`writer`, () => {
       expect(
         reserialize(new X(100), {
           custom: {
-            getDataType(value) {
-              if (value instanceof X) {
-                return 0;
-              }
+            isCustom(value) {
+              return value instanceof X;
             },
             serialize(writer, value, serialize) {
               if (!(value instanceof X)) {
                 throw new Error("can only serialize instances of class X");
               }
               serialize(value.y);
-              return;
+              return 0;
             },
 
             deserialize(reader, dataType, deserialize) {
@@ -127,22 +125,17 @@ describe(`writer`, () => {
           { x: new X(100), y: new Y("hallo welt!") },
           {
             custom: {
-              getDataType(value) {
-                if (value instanceof X) {
-                  return 0;
-                }
-                if (value instanceof Y) {
-                  return 1;
-                }
+              isCustom(value) {
+                return value instanceof X || value instanceof Y;
               },
               serialize(writer, data, serialize) {
                 if (data instanceof X) {
                   serialize(data.y);
-                  return;
+                  return 0;
                 }
                 if (data instanceof Y) {
                   serialize(data.x);
-                  return;
+                  return 1;
                 }
                 throw new Error("can only serialize instances of class X or class Y");
               },
@@ -166,11 +159,11 @@ describe(`writer`, () => {
         () =>
           reserialize(1, {
             custom: {
-              getDataType() {
-                return 10000;
+              isCustom() {
+                return true;
               },
               serialize() {
-                return new Uint8Array(0).buffer;
+                return 10000;
               },
               deserialize() {},
             },
@@ -181,11 +174,11 @@ describe(`writer`, () => {
         () =>
           reserialize(1, {
             custom: {
-              getDataType() {
-                return -1;
+              isCustom() {
+                return true;
               },
               serialize() {
-                return new Uint8Array(0).buffer;
+                return -1;
               },
               deserialize() {},
             },
