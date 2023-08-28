@@ -30,7 +30,7 @@ describe(`writer`, () => {
   it("should handle move forward", () => {
     const writer = new Writer();
     const length = writer.writeString("123");
-    writer.move(2, 0, length);
+    writer.move(2, 0);
     writer.writeU16At(0, 1000);
     const reader = new Reader();
     reader.start(writer.finishReference());

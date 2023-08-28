@@ -90,6 +90,9 @@ export class Writer {
     this.position += 4;
   }
 
+  /**
+   * @returns the byte length of the encoded string
+   */
   writeString(toWrite: string): number {
     if (toWrite.length < 10) {
       return this.writeStringManual(toWrite);
@@ -136,9 +139,6 @@ export class Writer {
     }
   }
 
-  /**
-   * @returns the byte length of the encoded string
-   */
   private writeStringNative(toWrite: string): number {
     const startPosition = this.position;
 
@@ -174,7 +174,7 @@ export class Writer {
   /**
    * after the move, the writer continues to write at the @param end
    */
-  move(by: number, start: number, end: number): void {
+  move(by: number, start: number, end: number = this.position): void {
     const newEnd = by + end;
     this.assureaHas(newEnd);
     this.u8array.copyWithin(start + by, start, end);

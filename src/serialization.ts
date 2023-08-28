@@ -148,7 +148,7 @@ export function writeString(writer: Writer, data: string) {
   if (byteLength < 0x100) {
     //8bit
     //move text back by 1 to insert the byteLength (8bit)
-    writer.move(1, currentTextPosition, currentTextPosition + byteLength);
+    writer.move(1, currentTextPosition);
     writer.writeU8At(dataTypePosition, DataType.Str8);
     writer.writeU8At(currentTextPosition, byteLength);
     return;
@@ -157,7 +157,7 @@ export function writeString(writer: Writer, data: string) {
   if (byteLength < 0x10000) {
     //16bit
     //move text back by 2 to insert the byteLength (16bit)
-    writer.move(2, currentTextPosition, currentTextPosition + byteLength);
+    writer.move(2, currentTextPosition);
     writer.writeU8At(dataTypePosition, DataType.Str16);
     writer.writeU16At(currentTextPosition, byteLength);
     return;
@@ -166,7 +166,7 @@ export function writeString(writer: Writer, data: string) {
   if (byteLength < 0x100000000) {
     //32bit
     //move text back by 4 to insert the byteLength (32bit)
-    writer.move(4, currentTextPosition, currentTextPosition + byteLength);
+    writer.move(4, currentTextPosition);
     writer.writeU8At(dataTypePosition, DataType.Str32);
     writer.writeU32At(currentTextPosition, byteLength);
     return;
@@ -296,13 +296,13 @@ function writeObject(writer: Writer, object: any, options: SerializationOptions)
     } else if (is16bit(keyLength)) {
       const currentKeyStartPosition = keyLengthTypePosition + 1;
       //move key back by 2 to insert the keyLength (16bit)
-      writer.move(2, currentKeyStartPosition, currentKeyStartPosition + keyLength);
+      writer.move(2, currentKeyStartPosition);
       writer.writeU8At(keyLengthTypePosition, 254);
       writer.writeU16At(currentKeyStartPosition, keyLength);
     } else if (is32bit(keyLength)) {
       const currentKeyStartPosition = keyLengthTypePosition + 1;
       //move key back by 4 to insert the keyLength (32bit)
-      writer.move(4, currentKeyStartPosition, currentKeyStartPosition + keyLength);
+      writer.move(4, currentKeyStartPosition);
       writer.writeU8At(keyLengthTypePosition, 255);
       writer.writeU32At(currentKeyStartPosition, keyLength);
     } else {
