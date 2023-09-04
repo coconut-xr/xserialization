@@ -96,4 +96,4 @@ Using this design reader and writer can be reused and serializeInto can be calle
 
 ## Achknowledgement
 
-**xserialization** builds on the structure and idea of [msgpack](https://github.com/msgpack) but focusses solely on js data.
+**xserialization** builds on the structure and idea of [msgpack](https://github.com/msgpack) but focuses solely on js data.
