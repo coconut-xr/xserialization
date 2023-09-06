@@ -62,7 +62,7 @@ export class Writer {
 
   writeU32(value: number): void {
     this.assureGrowthFits(4);
-    this.writeU32(value);
+    this.writeU32Unsafe(value);
   }
 
   writeFloat64(value: number): void {
