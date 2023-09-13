@@ -4,9 +4,9 @@ const textDecoder = new TextDecoder();
 const charCodes: Array<number> = [];
 
 export class Reader {
-  private position!: number;
-  private view!: DataView;
-  private uint8array!: Uint8Array;
+  public position!: number;
+  public view!: DataView;
+  public uint8array!: Uint8Array;
   private nonPrimitives: Array<any> = [];
   private running: boolean = false;
 
