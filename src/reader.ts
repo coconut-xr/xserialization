@@ -10,7 +10,7 @@ export class Reader {
   private nonPrimitives: Array<any> = [];
   private running: boolean = false;
 
-  constructor(private readonly littleEndian: boolean = true) {}
+  constructor(public readonly littleEndian: boolean = true) {}
 
   addNonPrimitive(data: any): void {
     this.nonPrimitives.push(data);

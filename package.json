@@ -1,6 +1,6 @@
 {
   "name": "@coconut-xr/xserialization",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "fast and efficient js data serialization",
   "keywords": ["binary", "serialization", "data"],
   "homepage": "https://coconut-xr.github.io/xserialization",
