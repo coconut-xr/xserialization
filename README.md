@@ -94,6 +94,5 @@ Using this design reader and writer can be reused and serializeInto can be calle
 | Obj32                                                         | 249     |
 | Reserved for future use                                       | 250-255 |
 
-## Achknowledgement
-
-**xserialization** builds on the structure and idea of [msgpack](https://github.com/msgpack) but focusses solely on js data.
+## Acknowledgement
+**xserialization** builds on the structure and idea of [msgpack](https://github.com/msgpack) but focuses solely on js data.
